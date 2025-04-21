@@ -1,0 +1,10 @@
+FROM system AS build
+ENV BUILD_TYPE=Release
+WORKDIR /workspace
+COPY . /workspace
+RUN mkdir build && \
+    cd build && \
+    cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local && \
+    make -j"$(nproc)" && \
+    make install
+

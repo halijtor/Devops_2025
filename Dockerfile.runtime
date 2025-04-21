@@ -1,0 +1,13 @@
+FROM alpine:3.18 AS runtime
+ENV HOME=/home/deskcalc \
+    PATH=/usr/local/bin:$PATH
+RUN addgroup -g 1000 deskcalc && \
+    adduser -D -u 1000 -G deskcalc -h /home/deskcalc deskcalc && \
+    mkdir -p /home/deskcalc && \
+    chown -R deskcalc:deskcalc /home/deskcalc
+COPY --from=build /usr/local/bin/DeskCalc /usr/local/bin/DeskCalc
+USER deskcalc
+WORKDIR /home/deskcalc
+ENTRYPOINT ["DeskCalc"]
+CMD ["--help"]
+
