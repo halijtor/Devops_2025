@@ -3,24 +3,23 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <string>
 
 #include "mps/str_util.hpp"
-#include "mps/clipboard.hpp"
-#include "mps/console_util.hpp"
-
 #include "math_util.hpp"
 #include "types.hpp"
 
 using std::cin;
 using std::cout;
+using std::string;
 
 Calculator::Calculator()
     : parser{ symbolTable }
 {
     register_commands();
 
-    if (std::ifstream prompt_stream{ "prompt.txt" })  // ommitted error handling, since there is a default prompt in place
-        getline(prompt_stream, prompt);
+    if (std::ifstream prompt_stream{ "prompt.txt" })
+        std::getline(prompt_stream, prompt);
 
     if (std::ifstream intro_stream{ "intro.txt" }) {
         std::ostringstream s;
@@ -43,7 +42,7 @@ void Calculator::run(int argc, char* argv[])
         run_cli();
         break;
     case 2:
-        if (std::string(argv[1]) == "-")
+        if (string(argv[1]) == "-")
             run_cli();
         else if (!run_file(argv[1]))
             parser.parse(argv[1]);
@@ -64,15 +63,15 @@ bool Calculator::run_file(const std::string& path)
 
 void Calculator::run_cli()
 {
-    cout << intro 
+    cout << intro
          << "Copyright (C) 2017 Matthias Stauber\n"
             "This program comes with ABSOLUTELY NO WARRANTY\n"
          << prompt;
 
-    for (std::string s; std::getline(cin, s); ) {
+    for (string s; std::getline(cin, s); ) {
         s = mps::str::trim(s);
         try {
-            if (s.size() && !handle_cmd(s))
+            if (!s.empty() && !handle_cmd(s))
                 parser.parse(s);
         }
         catch (const std::runtime_error& e) {
@@ -84,7 +83,8 @@ void Calculator::run_cli()
 
 bool Calculator::handle_cmd(const std::string& cmd)
 {
-    auto found = commands.find(mps::str::tolower(cmd));
+    auto key = mps::str::tolower(cmd);
+    auto found = commands.find(key);
     if (found != end(commands)) {
         found->second();
         return true;
@@ -94,20 +94,20 @@ bool Calculator::handle_cmd(const std::string& cmd)
 
 void Calculator::register_commands()
 {
-    static const std::string helpText{
+    static const string helpText{
         "For a list of operators, commands and functions please view the readme file\n"
     };
 
-    commands["help"] = [] { std::cout << helpText; };
+    commands["help"] = [] {
+        cout << helpText;
+    };
 
     commands["clear"] = commands["cls"] = [this] {
-        mps::cls();
         cout << intro;
     };
 
     commands["clear all"] = [this] {
         parser.symbol_table().clear();
-        mps::cls(); 
         cout << intro;
     };
     commands["clear vars"] = [this] { parser.symbol_table().clear_vars(); };
@@ -119,22 +119,22 @@ void Calculator::register_commands()
 
     commands["ls"] = [this] {
         const auto& vars = parser.symbol_table().vars();
-        if (vars.size())
+        if (!vars.empty())
             cout << "Variables:\n~~~~~~~~~~\n";
         for (const auto& v : vars) {
             cout << "  " << v.first << " = ";
             print_complex(cout, v.second.value);
             cout << '\n';
         }
-        
+
         const auto& funcs = parser.symbol_table().funcs();
-        if (funcs.size())
+        if (!funcs.empty())
             cout << "\nFunctions:\n~~~~~~~~~~\n";
         for (const auto& f : funcs)
             cout << "  " << f.second << '\n';
 
         const auto& lists = parser.symbol_table().lists();
-        if (lists.size())
+        if (!lists.empty())
             cout << "\nLists:\n~~~~~~\n";
         for (const auto& l : lists) {
             cout << "  " << l.first << " = ";
@@ -144,71 +144,98 @@ void Calculator::register_commands()
     };
 
     commands["run"] = [this] {
-        std::string fname;
-        if (cout << "file: " && std::getline(cin, fname))
+        cout << "file: ";
+        string fname;
+        if (std::getline(cin, fname))
             run_file(fname);
     };
 
     commands["copy"] = [this] {
-        auto&& str = mps::str::to_string(parser.symbol_table().value_of("ans"));
-        mps::set_clipboard_text(std::move(str));
+        auto str = mps::str::to_string(parser.symbol_table().value_of("ans"));
+        cout << str << '\n';
     };
+    commands["copy,"] = commands["copy"];
 
-    commands["copy,"] = [this] {
-        auto&& str = mps::str::to_string(parser.symbol_table().value_of("ans"));
-        mps::set_clipboard_text(mps::str::format_number_EU(std::move(str)));
-    };
-
-    commands["table"] = [this] {
-        // const auto func = mps::get_str("Function: ");
-        // double low = mps::get_num<double>("Low: ");
-        // double high = mps::get_num<double>("High: ");
+    commands["table"] = [] {
         cout << "Sorry, table feature not implemented yet.\n";
     };
 
     commands["dec"] = [] {
-        cout << "hex/bin (W/ leading 0): ";
-        int val{};
-        if (mps::read_hex(cin, val))
-            cin.ignore();
-        else if (!mps::read_bin(cin, val)) {
-            mps::recover_line(cin);
-            return;
+        cout << "Enter value (prefix 0x for hex, 0b for binary): ";
+        string input;
+        if (!std::getline(cin, input)) return;
+        try {
+            int val = 0;
+            if (input.rfind("0x", 0) == 0)
+                val = std::stoi(input.substr(2), nullptr, 16);
+            else if (input.rfind("0b", 0) == 0) {
+                for (char c : input.substr(2)) {
+                    if (c != '0' && c != '1')
+                        throw std::invalid_argument("Invalid binary digit");
+                    val = (val << 1) | (c - '0');
+                }
+            } else {
+                val = std::stoi(input);
+            }
+            cout << val << '\n';
         }
-        std::cout << val << '\n';
+        catch (...) {
+            cout << "Invalid number\n";
+        }
     };
 
     commands["bin"] = [] {
-        cout << "dec/hex: ";
-        int val{};
-        if (!mps::read_hex(cin, val) && !(cin >> val)) {
-            mps::recover_line(cin);
-            return;
+        cout << "Enter decimal or hex (prefix 0x): ";
+        string input;
+        if (!std::getline(cin, input)) return;
+        try {
+            int val = 0;
+            if (input.rfind("0x", 0) == 0)
+                val = std::stoi(input.substr(2), nullptr, 16);
+            else
+                val = std::stoi(input);
+            std::string bin;
+            for (int i = sizeof(int)*8 - 1; i >= 0; --i)
+                bin.push_back((val >> i) & 1 ? '1' : '0');
+            auto pos = bin.find('1');
+            bin = (pos == std::string::npos ? "0" : bin.substr(pos));
+            cout << bin << '\n';
         }
-        cin.ignore();
-        mps::print_binary(cout, val);
-        cout << '\n';
+        catch (...) {
+            cout << "Invalid number\n";
+        }
     };
 
     commands["hex"] = [] {
-        cout << "dec/bin (w/ leading 0): ";
-        int val{};
-        if (!mps::read_bin(cin, val)) {
-            if (!(cin >> val)) {
-                mps::recover_line(cin);
-                return;
+        cout << "Enter decimal or binary (prefix 0b): ";
+        string input;
+        if (!std::getline(cin, input)) return;
+        try {
+            int val = 0;
+            if (input.rfind("0b", 0) == 0) {
+                for (char c : input.substr(2)) {
+                    if (c != '0' && c != '1')
+                        throw std::invalid_argument("Invalid binary digit");
+                    val = (val << 1) | (c - '0');
+                }
+            } else {
+                val = std::stoi(input);
             }
-            cin.ignore();
+            std::ostringstream ss;
+            ss << std::hex << val;
+            cout << "0x" << ss.str() << std::dec << '\n';
         }
-        cout << "0x" << std::hex << val << std::dec << '\n';
+        catch (...) {
+            cout << "Invalid number\n";
+        }
     };
 
     commands["exp"] = [this] {
         if (!parser.has_result())
             return;
-        cout << abs(parser.result()) 
-             << "*e^(" 
-             << deg(arg(parser.result())) 
+        cout << abs(parser.result())
+             << "*e^("
+             << deg(arg(parser.result()))
              << "deg)i\n";
     };
 }
