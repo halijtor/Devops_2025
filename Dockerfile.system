@@ -1,0 +1,5 @@
+FROM alpine:3.18 AS system
+ENV CMAKE_INSTALL_PREFIX=/usr/local \
+    PATH=/usr/local/bin:$PATH
+RUN apk add --no-cache build-base cmake git && rm -rf /var/cache/apk/*
+

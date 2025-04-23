@@ -1,0 +1,147 @@
+///////////////////////////////////////////////////////////////////////////////
+
+left-associative: PLUS, MINUS
+left-associative: MUL, DIV, FLOORDIV, MOD, PARALLEL
+
+///////////////////////////////////////////////////////////////////////////////
+Grammar
+///////////////////////////////////////////////////////////////////////////////
+
+start -> stmt_list | command
+
+command -> ...
+
+stmt_list  -> full_stmt start
+            | END
+
+full_stmt  -> statement PRINT
+
+statement  -> func_def
+            | list_def
+            | deletion
+            | expr
+
+func_def   -> FUNC ident param_list ASSIGN func_term
+
+param_list -> LPAREN params RPAREN
+
+params     -> ident COMMA params
+            | ident
+
+func_term  -> expr
+
+deletion   -> DELETE strings
+
+strings    -> strings ident
+            | ident
+
+list_def   -> ident ASSIGN list
+
+list       -> LBRACKET list_elem RBRACKET
+            | LBRACKET FOR ident ASSIGN primary COMMA primary func_term RBRACKET
+            | LBRACKET FOR ident ASSIGN primary COMMA primary COLON primary func_term RBRACKET
+
+var_def    -> ident ASSIGN expr
+
+list_elem  -> expr COMMA list_elem
+            | expr
+
+expr       -> expr PLUS term
+            | expr MINUS term
+            | term
+			
+term       -> term MUL sign
+            | term DIV sign
+            | term FLOORDIV sign
+            | term MOD sign
+            | term PARALLEL sign
+            | sign
+  
+sign       -> MINUS postfix
+            | PLUS postfix
+            | postfix
+
+postfix    -> primary POW sign
+            | primary var
+            | primary func_call
+            | primary enc_expr
+            | primary FACT
+            | primary
+		 
+primary    -> ureal
+            | var
+            | func_call
+            | enc_expr
+		
+var        -> ident
+
+func_call  -> ident arg_list
+
+arg_list   -> LPAREN args RPAREN
+
+args       -> arg COMMA args
+            | arg
+	  
+arg        -> list_call
+            | primary
+		 
+enc_expr   -> LPAREN expr RPAREN
+		 
+ureal      -> digits DOT digits
+            | digits DOT
+            | DOT digits
+            | ureal EXP digits
+            | ureal EXP PLUS digits
+            | ureal EXP MINUS digits
+            | digits
+
+digits     -> digits DIGIT
+            | DIGIT
+
+ident      -> ALPHA chars
+            | UNDERSCORE chars
+
+chars      -> chars char
+            | char
+
+char       -> DIGIT | ALPHA | UNDERSCORE
+
+ALPHA      -> 'a' | 'b' | 'c' | ... | 'z' | 'A' | 'B' | ... | 'Z'
+DIGIT      -> '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
+UNDERSCORE -> '_'
+EXP        -> 'e' | 'E'
+DOT        -> '.'
+PLUS       -> '+'
+MINUS      -> '-'
+MUL        -> '*'
+DIV        -> '/'
+FLOORDIR   -> '//' | 'div'
+MOD        -> '%' | 'mod'
+FACT       -> '!'
+LPAREN     -> '('
+RPAREN     -> ')'
+PARALLEL   -> '||'
+POW        -> '^' | '**'
+COMMA      -> ','
+COLON      -> ':'
+PRINT      -> '\n' | ';'
+FUNC       -> 'fn'
+DELETE     -> 'del'
+ASSIGN     -> '='
+END        -> <EOF>
+
+///////////////////////////////////////////////////////////////////////////////
+Compact grammar (e.g., ANTLR notation?) -- INCOMPLETE
+///////////////////////////////////////////////////////////////////////////////
+grammar MathParser;
+
+expr:			term ((PLUS|MINUS) term)*
+term:			sign ((MUL|DIV|FLOORDIV|MOD|PARALLEL) sign)*
+sign:			(MINUS|PLUS)? postfix
+postifx:		primary (POW sign|identifier|enc_expr|FACT)*
+primary:		number|enc_expr
+enc_expr:		LPAREN expr RPAREN
+number:			...
+ident:			('_'|alpha) ('_'|alpha|digit)*
+alpha:			['a'-'z'] | ['A'-'Z']
+digit:			['0'-'9']

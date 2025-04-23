@@ -1,0 +1,9 @@
+FROM deskcalc-system AS build
+WORKDIR /workspace
+COPY . /workspace
+RUN mkdir build \
+ && cd build \
+ && cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local \
+ && make -j$(nproc) \
+ && make install
+

@@ -1,0 +1,19 @@
+FROM deskcalc-builder AS builder
+FROM alpine:3.18 AS runtime
+ENV HOME=/home/deskcalc \
+    PATH=/usr/local/bin:$PATH
+
+RUN apk add --no-cache libstdc++ libgcc \
+ && addgroup -g 1000 deskcalc \
+ && adduser -D -u 1000 -G deskcalc -h ${HOME} deskcalc \
+ && mkdir -p ${HOME} \
+ && chown -R deskcalc:deskcalc ${HOME}
+
+COPY --from=builder /usr/local/bin/DeskCalc /usr/local/bin/DeskCalc
+
+USER deskcalc
+WORKDIR ${HOME}
+
+ENTRYPOINT ["DeskCalc"]
+CMD ["-"]
+
